@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/gokusayon/products-api/sdk/client"
 	"github.com/gokusayon/products-api/sdk/client/products"
-	"testing"
 )
 
 func TestClientListProducts(t *testing.T) {
+
 	cfg := client.DefaultTransportConfig().WithHost("localhost:8080")
 	c := client.NewHTTPClientWithConfig(nil, cfg)
 	params := products.NewListProductsParams()

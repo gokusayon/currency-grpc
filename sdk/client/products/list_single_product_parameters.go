@@ -61,6 +61,12 @@ for the list single product operation typically these are written to a http.Requ
 */
 type ListSingleProductParams struct {
 
+	/*Currency
+	  Currency used when returning the price of the product.
+	when not specified it returns in GBP
+
+	*/
+	Currency *string
 	/*ID
 	  The ID of product to be deleted
 
@@ -105,6 +111,17 @@ func (o *ListSingleProductParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
+// WithCurrency adds the currency to the list single product params
+func (o *ListSingleProductParams) WithCurrency(currency *string) *ListSingleProductParams {
+	o.SetCurrency(currency)
+	return o
+}
+
+// SetCurrency adds the currency to the list single product params
+func (o *ListSingleProductParams) SetCurrency(currency *string) {
+	o.Currency = currency
+}
+
 // WithID adds the id to the list single product params
 func (o *ListSingleProductParams) WithID(id int64) *ListSingleProductParams {
 	o.SetID(id)
@@ -123,6 +140,22 @@ func (o *ListSingleProductParams) WriteToRequest(r runtime.ClientRequest, reg st
 		return err
 	}
 	var res []error
+
+	if o.Currency != nil {
+
+		// query param currency
+		var qrCurrency string
+		if o.Currency != nil {
+			qrCurrency = *o.Currency
+		}
+		qCurrency := qrCurrency
+		if qCurrency != "" {
+			if err := r.SetQueryParam("currency", qCurrency); err != nil {
+				return err
+			}
+		}
+
+	}
 
 	// path param id
 	if err := r.SetPathParam("id", swag.FormatInt64(o.ID)); err != nil {

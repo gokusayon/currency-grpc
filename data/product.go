@@ -54,11 +54,44 @@ type Products []*Product
 type ProductsDB struct {
 	log      hclog.Logger
 	currency protos.CurrencyClient
+	client   protos.Currency_SubscribeClient
+	rates    map[string]float64
 }
 
 // NewProductsDB returns a ProductDB handler
 func NewProductsDB(log hclog.Logger, currency protos.CurrencyClient) *ProductsDB {
-	return &ProductsDB{log: log, currency: currency}
+	pdb := &ProductsDB{log: log, currency: currency, client: nil, rates: map[string]float64{}}
+	pdb.handleUpdates()
+	return pdb
+}
+
+func (p *ProductsDB) handleUpdates() {
+	p.log.Info("Registering client")
+	sub, err := p.currency.Subscribe(context.Background())
+
+	if err != nil {
+		p.log.Debug("Error setting up the subscription", "error", err)
+	}
+
+	p.client = sub
+
+	go func() {
+
+		p.log.Info("Listening for updates ...")
+		for {
+			rr, err := p.client.Recv()
+			p.log.Info("Recived Update for", "destination", rr.GetDestination(), "rate", rr.GetRate())
+
+			if err != nil {
+				p.log.Error("Error while waiting for message", "error", err)
+				return
+			}
+
+			p.rates[rr.GetDestination().String()] = rr.Rate
+
+		}
+	}()
+
 }
 
 // GetProducts GETS list of products from database
@@ -67,12 +100,8 @@ func (p *ProductsDB) GetProducts(destination string) (Products, error) {
 		return productList, nil
 	}
 
-	rr := protos.RateRequest{
-		Base:        protos.Currencies(protos.Currencies_value["EUR"]),
-		Destination: protos.Currencies(protos.Currencies_value[destination]),
-	}
+	rate, err := p.getRate(destination)
 
-	resp, err := p.currency.GetRate(context.Background(), &rr)
 	if err != nil {
 		p.log.Error("Unable to get currency rates", "currency", destination, "err", err)
 		return nil, err
@@ -81,7 +110,7 @@ func (p *ProductsDB) GetProducts(destination string) (Products, error) {
 	newProductList := Products{}
 	for _, prod := range productList {
 		temp := *prod
-		temp.Price = temp.Price * resp.Rate
+		temp.Price = temp.Price * rate
 
 		newProductList = append(newProductList, &temp)
 	}
@@ -97,24 +126,50 @@ func (p *ProductsDB) GetProductByID(id int, destination string) (*Product, error
 		return nil, ErrorProductNotFound
 	}
 
+	// Return default values if destination string is empty
 	if destination == "" {
 		return productList[index], nil
 	}
 
-	rr := protos.RateRequest{
-		Base:        protos.Currencies(protos.Currencies_value["EUR"]),
-		Destination: protos.Currencies(protos.Currencies_value[destination]),
-	}
+	rate, err := p.getRate(destination)
 
-	resp, err := p.currency.GetRate(context.Background(), &rr)
 	if err != nil {
 		p.log.Error("Unable to get currency rates", "currency", destination, "err", err)
 		return nil, err
 	}
 
 	pr := *productList[index]
-	pr.Price = pr.Price * resp.Rate
+	pr.Price = pr.Price * rate
+
 	return &pr, nil
+
+}
+
+// getRate returns rate value for destination.
+func (p *ProductsDB) getRate(destination string) (float64, error) {
+
+	// check cache
+	if r, ok := p.rates[destination]; ok {
+		return r, nil
+	}
+
+	// Get initial rate
+	rr := protos.RateRequest{
+		Base:        protos.Currencies(protos.Currencies_value["EUR"]),
+		Destination: protos.Currencies(protos.Currencies_value[destination]),
+	}
+
+	resp, err := p.currency.GetRate(context.Background(), &rr)
+
+	if err != nil {
+		p.log.Error("Unable to get currency rates", "currency", destination, "err", err)
+		return 0, err
+	}
+
+	// Subscribe for updates
+	p.client.Send(&rr)
+
+	return resp.Rate, nil
 }
 
 // DeleteProduct DELETES a product with given ID from database

@@ -68,9 +68,17 @@ paths:
     get:
       description: Returns a list of products
       operationId: listProducts
+      parameters:
+      - description: |-
+          Currency used when returning the price of the product.
+          when not specified it returns in GBP
+        in: query
+        name: currency
+        type: string
+        x-go-name: Currency
       responses:
         "200":
-          $ref: '#/responses/productsResponse'
+          $ref: '#/responses/listProducts'
       tags:
       - products
     post:
@@ -108,6 +116,13 @@ paths:
       description: Returns a product from list of products
       operationId: listSingleProduct
       parameters:
+      - description: |-
+          Currency used when returning the price of the product.
+          when not specified it returns in GBP
+        in: query
+        name: currency
+        type: string
+        x-go-name: Currency
       - description: The ID of product to be deleted
         format: int64
         in: path
@@ -153,18 +168,18 @@ responses:
     description: Validation errors defined as an array of strings
     schema:
       $ref: '#/definitions/ValidationError'
-  noContent:
-    description: No content is returned by this API endpoint
-  productResponse:
-    description: A product returns in response
-    schema:
-      $ref: '#/definitions/Product'
-  productsResponse:
+  listProducts:
     description: A list of products returns in response
     schema:
       items:
         $ref: '#/definitions/Product'
       type: array
+  noContent:
+    description: ProductsNoContent No content is returned by this API endpoint
+  productResponse:
+    description: A product returns in response
+    schema:
+      $ref: '#/definitions/Product'
 schemes:
 - http
 swagger: "2.0"

@@ -10,8 +10,9 @@ import (
 
 	"github.com/go-openapi/runtime/middleware"
 	protos "github.com/gokusayon/currency/protos/currency"
-	dataimport "github.com/gokusayon/products-api/data"
+	data "github.com/gokusayon/products-api/data"
 	"github.com/gokusayon/products-api/handlers"
+	goHandlers "github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/hashicorp/go-hclog"
 	"google.golang.org/grpc"
@@ -24,7 +25,7 @@ func main() {
 
 	log.Info(runtime.GOOS)
 
-	v := dataimport.NewValidation()
+	v := data.NewValidation()
 
 	// Add grpc client
 	conn, err := grpc.Dial("localhost:8082", grpc.WithInsecure())
@@ -33,10 +34,9 @@ func main() {
 		panic(err)
 	}
 	defer conn.Close()
-	// replace github.com/gokusayon/currency => ../currency
 
 	cc := protos.NewCurrencyClient(conn)
-	productsDB := dataimport.NewProductsDB(log, cc)
+	productsDB := data.NewProductsDB(log, cc)
 
 	// Create the handlers
 	ph := handlers.NewProducts(log, v, productsDB)
@@ -50,6 +50,7 @@ func main() {
 	sm.Use(ph.MiddlewareContentType)
 
 	// Handle routes
+	log.Info("Registering routes")
 	getRouter := sm.Methods(http.MethodGet).Subrouter()
 	getRouter.HandleFunc("", ph.GetProducts).Queries("currency", "{[A-Z]{3}}")
 	getRouter.HandleFunc("", ph.GetProducts)
@@ -68,17 +69,22 @@ func main() {
 	deleteRouter := sm.Methods(http.MethodDelete).Subrouter()
 	deleteRouter.HandleFunc("/{id:[0-9]+}", ph.DeleteProducts)
 
+	log.Info("Registering swagger ..")
 	ops := middleware.RedocOpts{SpecURL: "/swagger.yaml"}
 	sh := middleware.Redoc(ops, nil)
 	swaggerRouter.Handle("/docs", sh)
 	swaggerRouter.Handle("/swagger.yaml", http.FileServer(http.Dir("./")))
 
+	// CORS
+	ch := goHandlers.CORS(goHandlers.AllowedOrigins([]string{"*"}))
+
 	s := &http.Server{
-		Addr:         ":8080",
-		Handler:      router,
+		Addr:         "localhost:8080",
+		Handler:      ch(router),
 		IdleTimeout:  120 * time.Second,
 		ReadTimeout:  1 * time.Second,
 		WriteTimeout: 1 * time.Second,
+		ErrorLog:     log.StandardLogger(&hclog.StandardLoggerOptions{}), // set the logger for the server
 	}
 
 	go func() {
@@ -94,7 +100,7 @@ func main() {
 	signal.Notify(sigChanel, os.Interrupt)
 
 	sig := <-sigChanel
-	log.Debug("Recieved Signal for shutdown. Shutting down gracefully ...", sig)
+	log.Debug("Recieved Signal for shutdown. Shutting down gracefully ...", "sig", sig)
 
 	tc, _ := context.WithTimeout(context.Background(), 30*time.Second)
 	s.Shutdown(tc)

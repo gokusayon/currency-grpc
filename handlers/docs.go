@@ -14,14 +14,14 @@
 // swagger:meta
 package handlers
 
-import dataimport "github.com/gokusayon/products-api/data"
+import data "github.com/gokusayon/products-api/data"
 
 // A list of products returns in response
-// swagger:response productsResponse
-type productsResponseWrapper struct {
+// swagger:response listProducts
+type listProductsWrapper struct {
 	// All products in the system
 	// in: body
-	Body []dataimport.Product
+	Body []data.Product
 }
 
 // A product returns in response
@@ -29,12 +29,12 @@ type productsResponseWrapper struct {
 type productResponseWrapper struct {
 	// All products in the system
 	// in: body
-	Body dataimport.Product
+	Body data.Product
 }
 
-// No content is returned by this API endpoint
+// ProductsNoContent No content is returned by this API endpoint
 // swagger:response noContent
-type ProductsNoContent struct {}
+type ProductsNoContent struct{}
 
 // Generic error message returned as a string
 // swagger:response errorResponse
@@ -52,8 +52,17 @@ type errorValidationWrapper struct {
 	Body ValidationError
 }
 
+// swagger:parameters listSingleProduct listProducts
+type productQueryParam struct {
+	// Currency used when returning the price of the product.
+	// when not specified it returns in GBP
+	//	in: query
+	//	required: false
+	Currency string `json:"currency"`
+}
+
 // swagger:parameters deleteProduct listSingleProduct updateProduct
-type productIDParameterWrapper struct {
+type productIDParam struct {
 	// The ID of product to be deleted
 	//	in: path
 	//	required: true

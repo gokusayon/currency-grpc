@@ -54,7 +54,7 @@ func NewUpdateProductCreated() *UpdateProductCreated {
 
 /*UpdateProductCreated handles this case with default header values.
 
-No content is returned by this API endpoint
+ProductsNoContent No content is returned by this API endpoint
 */
 type UpdateProductCreated struct {
 }

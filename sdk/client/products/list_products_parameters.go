@@ -19,7 +19,7 @@ import (
 // NewListProductsParams creates a new ListProductsParams object
 // with the default values initialized.
 func NewListProductsParams() *ListProductsParams {
-
+	var ()
 	return &ListProductsParams{
 
 		timeout: cr.DefaultTimeout,
@@ -29,7 +29,7 @@ func NewListProductsParams() *ListProductsParams {
 // NewListProductsParamsWithTimeout creates a new ListProductsParams object
 // with the default values initialized, and the ability to set a timeout on a request
 func NewListProductsParamsWithTimeout(timeout time.Duration) *ListProductsParams {
-
+	var ()
 	return &ListProductsParams{
 
 		timeout: timeout,
@@ -39,7 +39,7 @@ func NewListProductsParamsWithTimeout(timeout time.Duration) *ListProductsParams
 // NewListProductsParamsWithContext creates a new ListProductsParams object
 // with the default values initialized, and the ability to set a context for a request
 func NewListProductsParamsWithContext(ctx context.Context) *ListProductsParams {
-
+	var ()
 	return &ListProductsParams{
 
 		Context: ctx,
@@ -49,7 +49,7 @@ func NewListProductsParamsWithContext(ctx context.Context) *ListProductsParams {
 // NewListProductsParamsWithHTTPClient creates a new ListProductsParams object
 // with the default values initialized, and the ability to set a custom HTTPClient for a request
 func NewListProductsParamsWithHTTPClient(client *http.Client) *ListProductsParams {
-
+	var ()
 	return &ListProductsParams{
 		HTTPClient: client,
 	}
@@ -59,6 +59,14 @@ func NewListProductsParamsWithHTTPClient(client *http.Client) *ListProductsParam
 for the list products operation typically these are written to a http.Request
 */
 type ListProductsParams struct {
+
+	/*Currency
+	  Currency used when returning the price of the product.
+	when not specified it returns in GBP
+
+	*/
+	Currency *string
+
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
@@ -97,6 +105,17 @@ func (o *ListProductsParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
+// WithCurrency adds the currency to the list products params
+func (o *ListProductsParams) WithCurrency(currency *string) *ListProductsParams {
+	o.SetCurrency(currency)
+	return o
+}
+
+// SetCurrency adds the currency to the list products params
+func (o *ListProductsParams) SetCurrency(currency *string) {
+	o.Currency = currency
+}
+
 // WriteToRequest writes these params to a swagger request
 func (o *ListProductsParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
 
@@ -104,6 +123,22 @@ func (o *ListProductsParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.
 		return err
 	}
 	var res []error
+
+	if o.Currency != nil {
+
+		// query param currency
+		var qrCurrency string
+		if o.Currency != nil {
+			qrCurrency = *o.Currency
+		}
+		qCurrency := qrCurrency
+		if qCurrency != "" {
+			if err := r.SetQueryParam("currency", qCurrency); err != nil {
+				return err
+			}
+		}
+
+	}
 
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)

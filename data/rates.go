@@ -3,8 +3,10 @@ package data
 import (
 	"encoding/xml"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/hashicorp/go-hclog"
 )
@@ -18,6 +20,37 @@ func NewExchangeRate(log hclog.Logger) (*ExchangeRate, error) {
 	er := &ExchangeRate{log: log, rates: map[string]float64{}}
 	err := er.getRates()
 	return er, err
+}
+
+func (e *ExchangeRate) MonitorRates(interval time.Duration) chan struct{} {
+	ch := make(chan struct{})
+
+	go func() {
+		ticker := time.NewTicker(interval)
+
+		for {
+			select {
+			case <-ticker.C:
+				for key, val := range e.rates {
+					change := (rand.Float64() / 10)
+
+					direction := rand.Intn(1)
+
+					if direction == 0 {
+						change = change + 1
+					} else {
+						change = change - 1
+					}
+
+					e.rates[key] = val * change
+				}
+			}
+
+			ch <- struct{}{}
+		}
+	}()
+
+	return ch
 }
 
 func (e *ExchangeRate) GetRates(base, dest string) (float64, error) {

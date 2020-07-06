@@ -13,6 +13,14 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
+// {
+// 	"Base": "USD",
+// 	"Destination": "INR"
+// }
+// grpcurl --plaintext --msg-template localhost:8082 describe .RateResponse
+// grpcurl --plaintext localhost:8082 describe Currency.Subscribe
+// grpcurl --plaintext -d '{"Base": "GBP", "Destination":"INR"}' localhost:8082 Currency.Subscribe
+// grpcurl --plaintext -d '{ "Base": "GBP", "Destination": "INR"}' localhost:8082 Currency.Subscribe
 func main() {
 	logger := hclog.Default()
 

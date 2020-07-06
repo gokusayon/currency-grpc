@@ -1,21 +1,41 @@
 syntax = "proto3";
 
+import "google/rpc/status.proto";
+
 option go_package = ".;currency";
 
 service Currency{
+  // Get return exchange rate for the two provided currency codes
   rpc GetRate(RateRequest) returns (RateResponse);
-  rpc Subscribe(stream RateRequest) returns (stream RateResponse);
+  // Subscribe allows client to subscribe to exchange rate for the two provided currency codes
+  // on change the client is notified by the server
+  rpc Subscribe(stream RateRequest) returns (stream StreamingRateResponse);
 }
 
 message RateRequest{
+  // Base is the base currency for the rate
   Currencies Base = 1;
+  // Destination is the destination currency for the rate
   Currencies Destination = 2;
 }
 
 message RateResponse{
+  // Base is the base currency for the rate
   Currencies Base = 1;
+  // Destination is the destination currency for the rate
   Currencies Destination = 2;
+  // Rate is the exchange rate returned for the currency codes
   double Rate = 3;
+}
+
+message StreamingRateResponse {
+  // oneof sets any one of the following options
+  oneof message{
+    // RateResponse returns the exchange rate when updated
+    RateResponse rate_response = 1;
+    // status returns rich error messages to the client 
+    google.rpc.Status error = 2;
+  }
 }
 
 // Currencies is an enum which represents the allowed currencies for the API
@@ -53,5 +73,5 @@ enum Currencies {
   SGD=30;
   THB=31;
   ZAR=32;
-}
+};
 

@@ -17,7 +17,10 @@ const _ = grpc.SupportPackageIsVersion6
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CurrencyClient interface {
+	// Get return exchange rate for the two provided currency codes
 	GetRate(ctx context.Context, in *RateRequest, opts ...grpc.CallOption) (*RateResponse, error)
+	// Subscribe allows client to subscribe to exchange rate for the two provided currency codes
+	// on change the client is notified by the server
 	Subscribe(ctx context.Context, opts ...grpc.CallOption) (Currency_SubscribeClient, error)
 }
 
@@ -49,7 +52,7 @@ func (c *currencyClient) Subscribe(ctx context.Context, opts ...grpc.CallOption)
 
 type Currency_SubscribeClient interface {
 	Send(*RateRequest) error
-	Recv() (*RateResponse, error)
+	Recv() (*StreamingRateResponse, error)
 	grpc.ClientStream
 }
 
@@ -61,8 +64,8 @@ func (x *currencySubscribeClient) Send(m *RateRequest) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *currencySubscribeClient) Recv() (*RateResponse, error) {
-	m := new(RateResponse)
+func (x *currencySubscribeClient) Recv() (*StreamingRateResponse, error) {
+	m := new(StreamingRateResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -73,7 +76,10 @@ func (x *currencySubscribeClient) Recv() (*RateResponse, error) {
 // All implementations must embed UnimplementedCurrencyServer
 // for forward compatibility
 type CurrencyServer interface {
+	// Get return exchange rate for the two provided currency codes
 	GetRate(context.Context, *RateRequest) (*RateResponse, error)
+	// Subscribe allows client to subscribe to exchange rate for the two provided currency codes
+	// on change the client is notified by the server
 	Subscribe(Currency_SubscribeServer) error
 	// mustEmbedUnimplementedCurrencyServer()
 }
@@ -117,7 +123,7 @@ func _Currency_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) erro
 }
 
 type Currency_SubscribeServer interface {
-	Send(*RateResponse) error
+	Send(*StreamingRateResponse) error
 	Recv() (*RateRequest, error)
 	grpc.ServerStream
 }
@@ -126,7 +132,7 @@ type currencySubscribeServer struct {
 	grpc.ServerStream
 }
 
-func (x *currencySubscribeServer) Send(m *RateResponse) error {
+func (x *currencySubscribeServer) Send(m *StreamingRateResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 

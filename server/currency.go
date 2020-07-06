@@ -18,16 +18,21 @@ type Currency struct {
 	subscribers map[protos.Currency_SubscribeServer][]*protos.RateRequest
 }
 
+// NewCurrency returns the handler for the @Currency
 func NewCurrency(log hclog.Logger, er *data.ExchangeRate) *Currency {
 	c := &Currency{log: log, er: er, subscribers: make(map[protos.Currency_SubscribeServer][]*protos.RateRequest)}
 	go c.handleUpdates()
 	return c
 }
 
+// GetRates returns the exchange rates for the given base and destination currency
 func (c *Currency) GetRate(ctx context.Context, req *protos.RateRequest) (*protos.RateResponse, error) {
 	c.log.Info("Handle GetRate", "base", req.GetBase(), "destination", req.GetDestination())
 
+	//  if base currency is same as the destionation currency then return rich client error
 	if req.GetBase() == req.GetDestination() {
+		c.log.Info("Unable to fetch rates as base and destionation currency are same", "base", req.GetBase(), "destination", req.GetDestination())
+
 		st := status.Newf(
 			codes.InvalidArgument,
 			"Base curreny %s can not be same as the destination %s",
@@ -58,11 +63,12 @@ func (c *Currency) Subscribe(src protos.Currency_SubscribeServer) error {
 
 		// io.EOF signals that the client has closed the connection
 		if err == io.EOF {
-			c.log.Info("Client has closed connection")
+			c.log.Error("Client has closed connection")
 			break
 		}
 
 		if err != nil {
+			c.log.Error("Unable to fetch rates as base and destionation currency are same", "err", err)
 			return err
 		}
 
@@ -70,6 +76,37 @@ func (c *Currency) Subscribe(src protos.Currency_SubscribeServer) error {
 		rrs, ok := c.subscribers[src]
 		if !ok {
 			rrs = []*protos.RateRequest{}
+		}
+
+		// check if sub is already added to the subscibers list
+		var validationErr *status.Status
+		for _, val := range rrs {
+
+			// if this currency is already subscribed then return error
+			if val.Base == rr.Base && val.Destination == rr.Destination {
+
+				validationErr = status.Newf(codes.AlreadyExists, "Subscription active for the currenct destination")
+
+				validationErr, err = validationErr.WithDetails(rr)
+
+				if err != nil {
+					c.log.Error("Unable to add metadata to error.", "err", err)
+				}
+
+				break
+			}
+		}
+
+		// If validationErr is not nil then return error and continue
+		if validationErr != nil {
+			c.log.Error("Unable to subscibe", "err", validationErr.Message())
+
+			rrs := &protos.StreamingRateResponse_Error{Error: validationErr.Proto()}
+			err := &protos.StreamingRateResponse{Message: rrs}
+
+			src.Send(err)
+
+			continue
 		}
 
 		rrs = append(rrs, rr)
@@ -80,12 +117,11 @@ func (c *Currency) Subscribe(src protos.Currency_SubscribeServer) error {
 }
 
 func (c *Currency) handleUpdates() {
-	//TODO: handle updates for subscibers
 	c.log.Info("handling updates")
 	ch := c.er.MonitorRates(5 * time.Second)
 
 	// Iterate over channels
-	// Monitor rates pushes the data to the channel. Its consumed using for loop.
+	// Monitor rates pushes the data to the channel. Its consumed using for loop over channel.
 	for range ch {
 		c.log.Info("Data Updated")
 
@@ -101,8 +137,15 @@ func (c *Currency) handleUpdates() {
 					c.log.Error("Error fetching rates", key, "base", rr.GetBase(), "Destination", rr.GetDestination())
 				}
 
-				err = key.Send(&protos.RateResponse{Base: rr.GetBase(), Destination: rr.GetDestination(), Rate: rate})
+				resp := &protos.StreamingRateResponse{
+					Message: &protos.StreamingRateResponse_RateResponse{
+						RateResponse: &protos.RateResponse{Base: rr.GetBase(), Destination: rr.GetDestination(), Rate: rate},
+					},
+				}
 
+				err = key.Send(resp)
+
+				// if unable to publish to client then remove entry from the subsciption list
 				if err != nil {
 					c.log.Error("Error publishing response. Removing subscription", "base", rr.GetBase(), "Destination", rr.GetDestination())
 					delete(c.subscribers, key)

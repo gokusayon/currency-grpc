@@ -8,6 +8,8 @@ import (
 	data "github.com/gokusayon/currency/data"
 	protos "github.com/gokusayon/currency/protos/currency"
 	"github.com/hashicorp/go-hclog"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type Currency struct {
@@ -24,7 +26,26 @@ func NewCurrency(log hclog.Logger, er *data.ExchangeRate) *Currency {
 
 func (c *Currency) GetRate(ctx context.Context, req *protos.RateRequest) (*protos.RateResponse, error) {
 	c.log.Info("Handle GetRate", "base", req.GetBase(), "destination", req.GetDestination())
+
+	if req.GetBase() == req.GetDestination() {
+		st := status.Newf(
+			codes.InvalidArgument,
+			"Base curreny %s can not be same as the destination %s",
+			req.GetBase().String(),
+			req.GetDestination().String(),
+		)
+
+		err, wde := st.WithDetails(req)
+
+		if wde != nil {
+			return nil, wde
+		}
+
+		return nil, err.Err()
+	}
+
 	rate, _ := c.er.GetRates(req.GetBase().String(), req.GetDestination().String())
+
 	return &protos.RateResponse{Base: req.GetBase(), Destination: req.GetDestination(), Rate: rate}, nil
 }
 

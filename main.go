@@ -43,7 +43,7 @@ func main() {
 
 	protos.RegisterCurrencyServer(gs, cs)
 
-	l, err := net.Listen("tcp", ":8082")
+	l, err := net.Listen("tcp", ":8081")
 	if err != nil {
 		logger.Error("Unable to listen", "err", err)
 		os.Exit(1)
